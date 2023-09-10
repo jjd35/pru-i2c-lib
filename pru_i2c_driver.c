@@ -14,7 +14,13 @@
 volatile pruI2c* CT_I2C[2] = { &CT_I2C1, &CT_I2C2};
 uint32_t* CM_PER_I2C_CLKCTRL[2] = {(uint32_t*) 0x44E00048, (uint32_t*) 0x44E00044};
 
+uint8_t err = 0x0;
 uint8_t pru_i2c_initialized[2] = {0,0};
+
+void pru_i2c_soft_reset(uint8_t i2cDevice)
+{
+    CT_I2C[i2cDevice-1]->I2C_SYSC_bit.I2C_SYSC_SRST = 0b01;
+}
 
 void pru_i2c_driver_DelayMicros(uint8_t micros)
 {
@@ -104,17 +110,20 @@ uint8_t pru_i2c_driver_WaitRDONE(uint8_t i2cDevice)
     }
     return 1;
 }
-
 uint8_t pru_i2c_driver_ReadBytes(uint8_t i2cDevice, uint8_t address, uint8_t reg, uint8_t bytes, uint8_t* buffer)
 {
+    err = 0x00;
     if(!pru_i2c_initialized[i2cDevice-1]) {
         if(!pru_i2c_driver_Init(i2cDevice)) {
+            err = 0x01;
             return 0;
         }
     }
-
+    
     if (!pru_i2c_driver_WaitBB(i2cDevice))
     {
+        err = 0x02;
+        CT_I2C[i2cDevice-1]->I2C_CON_bit.I2C_CON_STT = 0b1;
         return 0;
     }
 
@@ -125,6 +134,7 @@ uint8_t pru_i2c_driver_ReadBytes(uint8_t i2cDevice, uint8_t address, uint8_t reg
 
     if (!pru_i2c_driver_WaitXRDY(i2cDevice))
     {
+        err = 0x03;
         return 0;
     }
     // write register to read
@@ -134,13 +144,19 @@ uint8_t pru_i2c_driver_ReadBytes(uint8_t i2cDevice, uint8_t address, uint8_t reg
     // wait access to registers
     if (!pru_i2c_driver_WaitARDY(i2cDevice))
     {
+        err = 0x05;
         return 0;
     }
     pru_i2c_driver_DelayMicros(4);
 
-    if (CT_I2C[i2cDevice-1]->I2C_IRQSTATUS_RAW_bit.I2C_IRQSTATUS_RAW_AERR
-            | CT_I2C[i2cDevice-1]->I2C_IRQSTATUS_RAW_bit.I2C_IRQSTATUS_RAW_NACK)
+    if (CT_I2C[i2cDevice-1]->I2C_IRQSTATUS_RAW_bit.I2C_IRQSTATUS_RAW_AERR)
     {
+        err = 0x06;
+        return 0;
+    }
+    if (CT_I2C[i2cDevice-1]->I2C_IRQSTATUS_RAW_bit.I2C_IRQSTATUS_RAW_NACK)
+    {
+        err = 0x07;
         return 0;
     }
 
@@ -153,6 +169,7 @@ uint8_t pru_i2c_driver_ReadBytes(uint8_t i2cDevice, uint8_t address, uint8_t reg
     // wait data
     if (!pru_i2c_driver_WaitRRDY(i2cDevice))
     {
+        err = 0x08;
         return 0;
     }
 
@@ -168,13 +185,19 @@ uint8_t pru_i2c_driver_ReadBytes(uint8_t i2cDevice, uint8_t address, uint8_t reg
         // wait data
         if (!pru_i2c_driver_WaitRRDY(i2cDevice))
         {
+            err = 0x09;
             return 0;
         }
         pru_i2c_driver_DelayMicros(1);
 
-        if (CT_I2C[i2cDevice-1]->I2C_IRQSTATUS_RAW_bit.I2C_IRQSTATUS_RAW_AERR
-                | CT_I2C[i2cDevice-1]->I2C_IRQSTATUS_RAW_bit.I2C_IRQSTATUS_RAW_NACK)
+        if (CT_I2C[i2cDevice-1]->I2C_IRQSTATUS_RAW_bit.I2C_IRQSTATUS_RAW_AERR)
         {
+            err = (0xA0 | count);
+            return 0;
+        }
+        if (CT_I2C[i2cDevice-1]->I2C_IRQSTATUS_RAW_bit.I2C_IRQSTATUS_RAW_NACK)
+        {
+            err = (0xB0 | count);
             return 0;
         }
     }
@@ -182,6 +205,8 @@ uint8_t pru_i2c_driver_ReadBytes(uint8_t i2cDevice, uint8_t address, uint8_t reg
     // wait for access ready
     if (!pru_i2c_driver_WaitARDY(i2cDevice))
     {
+        err = 0x0B;
+        CT_I2C[i2cDevice-1]->I2C_CON_bit.I2C_CON_I2C_EN = 0b0;
         return 0;
     }
 
@@ -189,9 +214,11 @@ uint8_t pru_i2c_driver_ReadBytes(uint8_t i2cDevice, uint8_t address, uint8_t reg
     // wait data
     if (!pru_i2c_driver_WaitBF(i2cDevice))
     {
+        err = 0x0C;
+        CT_I2C[i2cDevice-1]->I2C_CON_bit.I2C_CON_I2C_EN = 0b0;
         return 0;
     }
-
+    err = 0xFF;
     return count;
 }
 

@@ -23,5 +23,6 @@ uint16_t pru_i2c_driver_WriteWord(uint8_t i2cDevice, uint8_t address, uint8_t re
 void pru_i2c_driver_Set400KHz(uint8_t i2cDevice);
 void pru_i2c_driver_Set100KHz(uint8_t i2cDevice);
 uint8_t pru_i2c_driver_Init(uint8_t i2cDevice);
+void pru_i2c_soft_reset(uint8_t i2cDevice);
 
 #endif /* PRU_I2C_DRIVER_H_ */
