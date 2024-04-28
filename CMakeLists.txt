@@ -1,19 +1,24 @@
 
-
+cmake_minimum_required(VERSION 3.22)
+set(CMAKE_C_STANDARD 99)
+set(CMAKE_C_STANDARD_REQUIRED ON)
+set(CMAKE_SYSTEM_PROCESSOR pru)
+set(CMAKE_TRY_COMPILE_TARGET_TYPE   STATIC_LIBRARY)
+set(CMAKE_CROSSCOMPILING 1)
+set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
+set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
+set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
+set(CMAKE_C_COMPILER /usr/bin/clpru)
+set(CMAKE_LINKER /usr/bin/lnkpru) 
+add_compile_definitions(__ARM_PCS_VFP __PRU__)
 project(pru_i2c LANGUAGES C)
 
-add_library(${PROJECT_NAME} STATIC ${CMAKE_CURRENT_SOURCE_DIR}/pru_i2c_driver.c)
+add_library(${PROJECT_NAME} STATIC pru_i2c_driver.c) 
 
-target_include_directories(${PROJECT_NAME} PUBLIC 
-"$ENV{PRU_SDK_PATH}/include/"
-"$ENV{AM335X_INCLUDE_PATH}"
-"$ENV{ARM_INCLUDE_PATH}"
-"$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>/include/"
+target_include_directories(${PROJECT_NAME} PRIVATE 
+"/usr/include/am335x/"
+"/usr/include/pru/"
+"/usr/include/armv7/"
+"include/"
 )
 
-
-#set_target_properties(${PROJECT_NAME} PROPERTIES IMPORTED_LOCATION ${CMAKE_CURRENT_SOURCE_DIR}/../)
-#target_link_libraries(${PROJECT_NAME} $ENV{PRU_LIBRARY_PATH}/libc.a ${CMAKE_CURRENT_SOURCE_DIR}/../librobotcontrol/pru_firmware/src/AM335x_PRU.cmd )
-#install(TARGETS ${PROJECT_NAME}
- #    DESTINATION ${CMAKE_LIBRARY_OUTPUT_DIRECTORY})
-#install(FILES "include/pru_i2c_driver.h" "include/pru_i2c.h" DESTINATION include/$PROJECT_NAME)
